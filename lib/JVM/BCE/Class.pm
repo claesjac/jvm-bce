@@ -9,4 +9,7 @@ sub new {
     return $self;
 }
 
+sub name {}
+sub extends {}
+    
 1;

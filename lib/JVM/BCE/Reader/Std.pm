@@ -5,6 +5,8 @@ use warnings;
 
 use JVM::BCE::Class;
 
+use parent qw(JVM::BCE::Reader);
+
 sub target { 
     return $_[0]->{target};
 }
