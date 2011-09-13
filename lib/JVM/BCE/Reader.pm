@@ -5,66 +5,34 @@ use warnings;
 
 use Carp qw(croak);
 
-sub _read_short {
-    my $io = shift;
+sub _read_bytes($$$) {
+    my ($io, $expect, $type) = @_;
     my $buffer;
-    $io->read($buffer, 2) == 2 or croak "Can't read short";
-    return unpack "n", $buffer;
+    $io->read($buffer, $expect) == $expect or croak "Can't read ${type}";
+    return $buffer;
 }
 
-sub _read_int {
-    my $io = shift;
-    my $buffer;
-    $io->read($buffer, 4) == 4 or croak "Can't read long";
-    return unpack "N", $buffer;
-}
+sub _read_short { return unpack "n", _read_bytes shift, 2, "short" }
+sub _read_int { return unpack "N", _read_bytes shift, 4, "int" }
+sub _read_float { return unpack "f>", _read_bytes shift, 4, "float" }
+sub _read_double { return unpack "d>", _read_bytes shift, 8, "double" }
 
 sub _read_long {
-    my $io = shift;
-    my $buffer;
-    $io->read($buffer, 8) == 8 or croak "Can't read long";
-    my ($high, $low) = unpack "NN", $buffer;
+    my ($high, $low) = unpack "NN", _read_bytes shift, 8, "long";
     my $value = ($high * (2**32)) + $low;    
     return $value;
 }
 
-sub _read_float {
-    my $io = shift;
-    my $buffer;
-    $io->read($buffer, 4) == 4 or croak "Can't read long";
-    return unpack "f>", $buffer;
-}
+sub _read_short_short { return unpack "nn", _read_bytes shift, 4, "two shorts"; }
 
-sub _read_double {
-    my $io = shift;
-    my $buffer;
-    $io->read($buffer, 8) == 8 or croak "Can't read long";
-    return unpack "d>", $buffer;
-}
-
-sub _read_short_short {
-    my $io = shift;
-    return (_read_short($io), _read_short($io));
-}
-
-sub _read_reference {
-    my $io = shift;
-    my $buffer;
-    $io->read($buffer, 3) == 3 or croak "Can't read reference";
-    return unpack "Cn", $buffer;
-}
+sub _read_reference { return unpack "Cn", _read_bytes shift, 3, "reference"; }
 
 sub _read_utf8 {
     my $io = shift;
     my $len = _read_short($io);
-    my $buffer;
-    $io->read($buffer, $len) == $len or croak "Failed to read $len bytes of utf8 data";
-
+    my ($str) = unpack "a*", _read_bytes $io, $len, "utf8 data";
     require utf8;
-
-    my ($str) = unpack "a*", $buffer;
     utf8::upgrade($str);
-    
     return $str;
 }
 
