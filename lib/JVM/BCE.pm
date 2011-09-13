@@ -5,6 +5,12 @@ use warning;
 
 our $VERSION = "0.01";
 
+sub read {
+    require JVM::BCE::Reader::Std;
+    
+    return JVM::BCE::Reader::Std->read(pop)
+}
+
 1;
 =pod
 
