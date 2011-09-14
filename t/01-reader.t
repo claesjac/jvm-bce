@@ -5,6 +5,7 @@ package t::JVM::BCE::Reader;
 use strict;
 use warnings;
 
+use Data::Dumper qw(Dumper);
 use Test::More qw(no_plan);
 use Test::Exception;
 
@@ -46,4 +47,32 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
         $cp_calls++;
     }
     is($cp_calls, 28);
+}
+
+{
+    my ($access_flags);
+    sub handle_class_access_flags {
+        $access_flags = pop;
+    }
+    is($access_flags, 0x21);
+}
+
+{
+    my ($index, $class_info, $name);
+    sub handle_this_class {
+        (undef, $index, $class_info, $name) = @_;
+    }
+    is($index, 5);
+    is_deeply($class_info, [21]);
+    is($name, "Foo");
+}
+
+{
+    my ($index, $class_info, $name);
+    sub handle_super_class {
+        (undef, $index, $class_info, $name) = @_;
+    }
+    is($index, 6);
+    is_deeply($class_info, [22]);
+    is($name, "java/lang/Object");
 }
