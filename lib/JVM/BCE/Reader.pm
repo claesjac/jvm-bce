@@ -91,10 +91,11 @@ sub read {
     {
         $io->read($buffer, 2) == 2 or croak "Couldn't read constant pool count";
         my ($cp_count) = unpack "n", $buffer;
-        $self->handle_begin_constant_pool($cp_count - 1);
-    
+        $cp_count--;
+        $self->handle_begin_constant_pool($cp_count);
+        
         my $ix = 1;
-        while ($cp_count-- > 1) {
+        while ($cp_count-- > 0) {
             $io->read($buffer, 1) == 1 or croak "Couldn't read constant pool item tag";
             my ($tag) = unpack "C", $buffer;
             croak "Unknown constant pool tag ${tag}" unless exists $CP_Reader{$tag};
@@ -103,11 +104,14 @@ sub read {
             $constant_pool[$ix] = \@entry;
             $ix += $ix_offset;
         }
+        
+        $self->handle_end_constant_pool();
+        
     }
     
     # Class declaration
     {
-        $io->read($buffer, 2) == 2 or croak "Couldn't reed access flags";
+        $io->read($buffer, 2) == 2 or croak "Couldn't read access flags";
         my ($access_flags) = unpack "n", $buffer;
         $self->handle_class_access_flags($access_flags);
 
@@ -120,16 +124,74 @@ sub read {
             my $name_index = $constant_pool[$super_class]->[0];
             $self->handle_super_class($super_class, $constant_pool[$super_class], $constant_pool[$name_index]->[0]);
         }
+        
+        $io->read($buffer, 2) == 2 or croak "Couldn't read interface count";
+        my ($if_count) = unpack "n", $buffer;
+        $self->handle_begin_interfaces($if_count);
+        if ($if_count) {
+            $io->read($buffer, 2 * $if_count) == 2 * $if_count or croak "Couldn't read list of interfaces";
+            my @ifs = unpack "n*", $buffer;
+            for my $if (@ifs) {
+                my $name_index = $constant_pool[$if]->[0];
+                $self->handle_interface($if, $name_index, $constant_pool[$name_index]->[0]);
+            }
+            $self->handle_end_interfaces($if_count);
+        }
     }
+    
+    # Class fields
+    {
+        $io->read($buffer, 2) == 2 or croak "Couldn't read field count";
+        my ($field_count) = unpack "n", $buffer;
+        $self->handle_begin_fields($field_count);
+        while ($field_count-- > 0) {
+            $io->read($buffer, 8) == 8 or croak "Couldn't read field info";
+            my ($access_flags, $name_index, $descriptor_index, $attributes_count) = unpack "n4", $buffer;
+            my @attributes = _read_attributes($io, \@constant_pool, $attributes_count);
+            $self->handle_field(
+                $access_flags, 
+                $name_index, $constant_pool[$name_index]->[0], 
+                $descriptor_index, $constant_pool[$descriptor_index]->[0], 
+                \@attributes
+            );
+        }
+        $self->handle_end_fields();
+    }
+}
+
+sub _read_attributes {
+    my ($io, $cp, $count) = @_;
+    
+    my ($buffer, @attributes);
+    while ($count-- > 0) {
+        $io->read($buffer, 6) == 6 or croak "Couldn't read attriute info header";
+        my ($attribute_name_index, $len) = unpack "nN", $buffer;
+        my $data;
+        $io->read($data, $len) == $len or croak "Couldn't read attribute data";
+        push @attributes, [$attribute_name_index, $cp->[$attribute_name_index]->[0], $data];
+    }
+    
+    return @attributes;
 }
 
 sub handle_magic { 1; }
 sub handle_version { 1; }
+
 sub handle_begin_constant_pool { 1; }
 sub handle_constant_pool_entry { 1; }
+sub handle_end_constant_pool { 1; }
+
 sub handle_class_access_flags { 1; }
 sub handle_this_class { 1; }
 sub handle_super_class { 1; }
+
+sub handle_begin_interfaces { 1; }
+sub handle_interface { 1; }
+sub handle_end_interfaces { 1; }
+
+sub handle_begin_fields { 1; }
+sub handle_field { 1; }
+sub handle_end_fields { 1; }
 
 1;
 =pod
