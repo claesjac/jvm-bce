@@ -98,6 +98,7 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
     is (scalar @ifs, 2);
     is_deeply (shift @ifs, [7, 35, 'java/lang/Comparable']);
     is_deeply (shift @ifs, [8, 36, 'java/lang/Runnable']);
+    
 }
 
 {
@@ -115,5 +116,23 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
     is (scalar @fields, 2);
     is_deeply (shift @fields, [0, 9, 'bar', 10, 'I', []]);
     is_deeply (shift @fields, [9, 11, 'quax', 12, 'Ljava/lang/Thread;', [[13, 'Deprecated', ''], [14, 'RuntimeVisibleAnnotations', "\0\1\0\17\0\0"]]]);    
+}
+
+{
+    my $method_count;
+    sub handle_begin_methods {
+        $method_count = pop;
+    }
+    is($method_count, 4);
+    
+    my @methods;
+    sub handle_method {
+        shift;
+        pop;
+        push @methods, [@_];
+    }
+    is (scalar @methods, 4);
+    is_deeply (shift @methods, [1, 16, '<init>', 17, '()V']);
+    is_deeply (shift @methods, [1, 20, 'run', 17, '()V']);    
 }
 

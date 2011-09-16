@@ -157,6 +157,33 @@ sub read {
         }
         $self->handle_end_fields();
     }
+    
+    # Class methods
+    {
+        $io->read($buffer, 2) == 2 or croak "Couldn't read field count";
+        my ($method_count) = unpack "n", $buffer;
+        $self->handle_begin_methods($method_count);
+        while ($method_count-- > 0) {
+            $io->read($buffer, 8) == 8 or croak "Couldn't read field info";
+            my ($access_flags, $name_index, $descriptor_index, $attribute_count) = unpack "n4", $buffer;
+            my @attributes = _read_attributes($io, \@constant_pool, $attribute_count);
+            $self->handle_method(
+                $access_flags, 
+                $name_index, $constant_pool[$name_index]->[0], 
+                $descriptor_index, $constant_pool[$descriptor_index]->[0], 
+                \@attributes
+            );
+        }
+        $self->handle_end_methods();
+    }
+
+    # Class attributes
+    $io->read($buffer, 2) == 2 or croak "Couldn't read attribute count";
+    my ($attribute_count) = unpack "n", $buffer;
+    $self->handle_begin_attributes($attribute_count);
+    my @attributes = _read_attributes($io, \@constant_pool, $attribute_count);
+    $self->handle_attribute($_) for @attributes;
+    $self->handle_end_attributes();
 }
 
 sub _read_attributes {
@@ -192,6 +219,14 @@ sub handle_end_interfaces { 1; }
 sub handle_begin_fields { 1; }
 sub handle_field { 1; }
 sub handle_end_fields { 1; }
+
+sub handle_begin_methods { 1; }
+sub handle_method { 1; }
+sub handle_end_methods { 1; }
+
+sub handle_begin_attributes { 1; }
+sub handle_attribute { 1; }
+sub handle_end_attributes { 1; }
 
 1;
 =pod
