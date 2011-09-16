@@ -186,6 +186,12 @@ sub read {
     $self->handle_end_attributes();
 }
 
+our %Attributes = (
+    ConstantValue   => \&_read_ConstantValue_attribute,
+    Code            => \&_read_Code_attribute,
+    Exceptions      => \&_read_Exceptions_attribute,
+);
+
 sub _read_attributes {
     my ($io, $cp, $count) = @_;
     
@@ -193,12 +199,69 @@ sub _read_attributes {
     while ($count-- > 0) {
         $io->read($buffer, 6) == 6 or croak "Couldn't read attriute info header";
         my ($attribute_name_index, $len) = unpack "nN", $buffer;
-        my $data;
-        $io->read($data, $len) == $len or croak "Couldn't read attribute data";
-        push @attributes, [$attribute_name_index, $cp->[$attribute_name_index]->[0], $data];
+        my $type = $cp->[$attribute_name_index]->[0];
+        if (exists $Attributes{$type}) {
+            push @attributes, {$Attributes{$type}->($io, $cp), type => $type};
+        }
+        else {
+            my $data;
+            $io->read($data, $len) == $len or croak "Couldn't read attribute data";
+            push @attributes, {type => $type, data => $data};
+        }
     }
     
     return @attributes;
+}
+
+sub _read_ConstantValue_attribute {
+    my ($io, $cp) = @_;
+    my $ix = _read_short $io;
+    return (
+        cp_index => $ix, 
+        value => $cp->[$ix]->[0],
+    );
+}
+
+sub _read_Code_attribute {
+    my ($io, $cp) = @_;
+
+    my $max_stack = _read_short $io;
+    my $max_locals = _read_short $io;
+    my $code_length = _read_int $io;
+    my $code = _read_bytes $io, $code_length, "instructions";
+    my $ex_table_length = _read_short $io;
+    my @ex_table;
+    for (1..$ex_table_length) {
+        my $ex = {};
+        @{$ex}{start_pc end_pc handler_pc catch_type_index} = unpack "nnnn", _read_bytes $io, 8, "exception table entry";
+        $ex->{catch_type} = $cp->[$ex->{catch_type_index}]->[0];
+        push @ex_table, $ex;
+    }
+    
+    my $attribute_count = _read_short $io;
+    my @attributes = _read_attributes $io, $cp, $attribute_count;
+    
+    return (
+        max_stack => $max_stack, max_locals => $max_locals,
+        code => $code,
+        exception_table => \@ex_table,
+        attributes => \@attributes,
+    );
+}
+
+sub _read_Exceptions_attribute {
+    my ($io, $cp) = @_;
+    
+    my $num_exceptions = _read_short $io;
+    my @exceptions;
+    if ($num_exceptions) {
+        @exceptions = unpack "n$num_exceptions", _read_bytes $io, $num_exceptions * 2, " exception_index_table";
+        @exceptions = map +{ index => $_, type => $cp->[$cp->[$_]->[0]]->[0] }, @exceptions;
+    }
+    
+    return (
+        exceptions => \@exceptions,
+    );
 }
 
 sub handle_magic { 1; }

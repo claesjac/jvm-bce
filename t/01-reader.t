@@ -40,13 +40,13 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
     sub handle_begin_constant_pool {
         $cp_count = pop;
     }
-    is($cp_count, 42);
+    is($cp_count, 45);
     
     my $cp_calls;
     sub handle_constant_pool_entry {
         $cp_calls++;
     }
-    is($cp_calls, 42);
+    is($cp_calls, 45);
     
     my $cp_end;
     sub handle_end_constant_pool {
@@ -69,7 +69,7 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
         (undef, $index, $class_info, $name) = @_;
     }
     is($index, 5);
-    is_deeply($class_info, [33]);
+    is_deeply($class_info, [35]);
     is($name, "Foo");
 }
 
@@ -79,7 +79,7 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
         (undef, $index, $class_info, $name) = @_;
     }
     is($index, 6);
-    is_deeply($class_info, [34]);
+    is_deeply($class_info, [36]);
     is($name, "java/lang/Object");
 }
 
@@ -96,8 +96,8 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
         push @ifs, [@_];
     }
     is (scalar @ifs, 2);
-    is_deeply (shift @ifs, [7, 35, 'java/lang/Comparable']);
-    is_deeply (shift @ifs, [8, 36, 'java/lang/Runnable']);
+    is_deeply (shift @ifs, [7, 37, 'java/lang/Comparable']);
+    is_deeply (shift @ifs, [8, 38, 'java/lang/Runnable']);
     
 }
 
@@ -111,11 +111,12 @@ my $class = t::JVM::BCE::Reader->read('t/data/Foo.class');
     my @fields;
     sub handle_field {
         shift;
+        pop;
         push @fields, [@_];
     }
     is (scalar @fields, 2);
-    is_deeply (shift @fields, [0, 9, 'bar', 10, 'I', []]);
-    is_deeply (shift @fields, [9, 11, 'quax', 12, 'Ljava/lang/Thread;', [[13, 'Deprecated', ''], [14, 'RuntimeVisibleAnnotations', "\0\1\0\17\0\0"]]]);    
+    is_deeply (shift @fields, [0, 9, 'bar', 10, 'I']);
+    is_deeply (shift @fields, [9, 11, 'quax', 12, 'Ljava/lang/Thread;']);    
 }
 
 {

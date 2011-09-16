@@ -1,3 +1,5 @@
+import java.io.IOException;
+
 public class Foo implements Comparable, Runnable {
     int bar;
     
@@ -11,7 +13,7 @@ public class Foo implements Comparable, Runnable {
         return 0;
     }
     
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         System.out.println("Hello World");
     }
 }
